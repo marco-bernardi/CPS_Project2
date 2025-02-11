@@ -86,9 +86,11 @@ This section provides a detailed explanation of the three-way authentication mec
 
 \subsection{Secure Vaults}
 
-A secure vault is a protected storage mechanism used to maintain cryptographic keys and authentication data safely. In the context of the proposed authentication protocol, the vault is responsible for storing long-term secrets and dynamically updating authentication keys upon a successful session establishment.
+A secure vault is a protected storage mechanism used to maintain cryptographic keys and authentication data safely. In the context of the proposed authentication protocol, the vault is responsible for authentication keys and dynamically updating them upon a successful session establishment.
 
-To ensure the integrity and confidentiality of stored data, the vault employs cryptographic techniques such as encryption, hashing, and secure access controls.
+To ensure the integrity and confidentiality of stored data, the vault is countinuously updated using a secure hashing algorithm. This process
+ensures that the vault's contents are modified after each session, preventing replay attacks and unauthorized access.
+
 
 \subsection{Authentication Process}
 The authentication protocol consists of four message exchanges between the IoT device and the server. Below is the step-by-step breakdown:
@@ -98,9 +100,9 @@ The authentication protocol consists of four message exchanges between the IoT d
           \begin{equation}
               M_1 = \text{Device ID} \parallel \text{Session ID}
           \end{equation}
-          The server verifies if the device is known and retrieves the cryptographic keys from the secure vault.
 
-    \item The server responds by generating a random number $r_1$ and a challenge $C_1$ (a set of p distinct random numbers, and each number represents an index of a key in the vault) derived from the stored keys:
+    \item The server verifies if the device is known by checking the device ID against a list of registered devices. If the device is valid, the server
+     responds by generating a random number $r_1$ and a challenge $C_1$ (a set of p distinct random numbers, and each number represents an index of a key in the vault) derived from the stored keys:
           \begin{equation}
               M_2 = \{ C_1, r_1 \}
           \end{equation}
@@ -149,16 +151,6 @@ The HMAC is computed on the contents of the current secure vault with the key be
 
 By following these steps after every session, the secure vault is continuously updated, thereby ensuring robust security in subsequent connections.
 
-\subsection{Cryptographic Operations}
-Several cryptographic operations ensure security:
-\begin{itemize}
-    \item \textbf{Encryption:} A symmetric encryption algorithm (e.g., AES) secures messages $M_3$ and $M_4$.
-    \item \textbf{XOR Operation:} Used in message $M_4$ to obfuscate timestamps, preventing replay attacks.
-    \item \textbf{Hashing:} A secure hash function (e.g., SHA-256) generates new session keys during vault updates.
-\end{itemize}
-
-This mechanism ensures robust mutual authentication, secure key management, and resistance against replay and man-in-the-middle attacks.
-
 \begin{algorithm}
     \caption{IoT Mutual Authentication Protocol}
     \begin{algorithmic}[1]
@@ -201,6 +193,9 @@ and the variables to store the various keys and challenges exchanged during the 
 \texttt{IoTConnectionManager} acts as a coordinator for the authentication process, managing the communication between the IoT device and the server, from the initial message exchange to the final session key generation.
 It also handles the message exchange between the two entities, ensuring that the protocol is followed correctly and securely.
 
+\subsection{Code Snippets}
+All the code snipetts are available in the GitHub repository of the project, which can be found here: \cite{bernardi2025cps}.
+
 \section{Security Analysis}
 As this work presents a purely software-based implementation of the protocol, with both hardware entities being simulated, the security analysis is constrained to the software level. 
 
@@ -211,7 +206,7 @@ The original paper discusses several security aspects, including resistance to M
     The protocol is designed to withstand MITM attacks, preventing adversaries from intercepting and extracting the session key for unauthorized communication. In this implementation, an MITM attack could be attempted after the connection is established by capturing and replaying previously transmitted messages. An attacker who gains access to the communication channel could intercept messages and replay them to the other entity without necessarily understanding their content. If replay protection mechanisms are not enforced, such an attack could lead to unintended system behavior. Therefore, message authentication and freshness validation are critical countermeasures.
 
     \item \textbf{Next-Password Prediction:}  
-    The security of key generation relies on the use of a cryptographically secure pseudorandom number generator (CSPRNG). In this implementation, randomness is derived from \texttt{os.urandom()}, which is widely regarded as secure. Given the unpredictability of the generated keys, the probability of successfully predicting the next key is negligible unless a fundamental vulnerability is discovered in the underlying randomness source.
+    The security of key generation relies on the use of a cryptographically secure pseudorandom number generator (CSPRNG). In this implementation, randomness is derived from \texttt{os.urandom()}, which is considered secure. Given the unpredictability of the generated keys, the probability of successfully predicting the next key is negligible unless a fundamental vulnerability is discovered in the underlying randomness source.
 
     \item \textbf{DoS Attacks:}  
     The system is designed to be resistant to DoS attacks by ensuring that the server does not allocate resources for unrecognized clients. If an unknown client ID is presented, the server remains unresponsive, preventing resource exhaustion. While DoS attacks targeting the hardware communication layer—such as flooding the channel—are outside the scope of this work, they remain a potential concern in real-world deployments involving physical devices.
@@ -225,7 +220,6 @@ This work presents a Python implementation of a secure mutual authentication pro
 For instance, if the secure vault is not adequately protected and stored in a secure memory, an attacker with physical access to the device could retrieve its contents, compromising the security of the system. The same principle applies to cryptographic keys—if they are stored in non-secure memory, an attacker could extract them at runtime, enabling unauthorized decryption and encryption of messages.
 
 Therefore, while the software implementation follows secure design principles, real-world deployments must incorporate robust hardware security measures, such as secure enclaves or trusted execution environments, to mitigate potential threats effectively.
-\subsection{Final Remarks}
 
 {\small
     \bibliographystyle{ieee_fullname}
