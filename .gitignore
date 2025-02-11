@@ -1,6 +1,5 @@
 # Python VENV
 venv/
-*.md
 # Tex build files
 *.aux
 *.bbl
