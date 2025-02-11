@@ -1,0 +1,235 @@
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+\usepackage{cvpr}
+\usepackage{times}
+\usepackage{epsfig}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[table,xcdraw]{xcolor}
+\usepackage{caption}
+\usepackage{makecell}
+\usepackage[T1]{fontenc}
+\usepackage{placeins}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+\definecolor{lightergray}{rgb}{0.9,0.9,0.9}
+\renewcommand{\arraystretch}{1.15}
+\captionsetup[table]{skip=5pt}
+
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    stringstyle=\color{red},
+    commentstyle=\color{green},
+    showstringspaces=false,
+    frame=single,
+    breaklines=true
+}
+% Include other packages here, before hyperref.
+
+% If you comment hyperref and then uncomment it, you should delete
+% egpaper.aux before re-running latex.  (Or just hit 'q' on the first latex
+% run, let it finish, and you should be clear).
+\usepackage[breaklinks=true,bookmarks=false]{hyperref}
+
+\cvprfinalcopy % *** Uncomment this line for the final submission
+
+\def\cvprPaperID{****} % *** Enter the CVPR Paper ID here
+\def\httilde{\mbox{\tt\raisebox{-.5ex}{\symbol{126}}}}
+
+% Pages are numbered in submission mode, and unnumbered in camera-ready
+%\ifcvprfinal\pagestyle{empty}\fi
+\setcounter{page}{1}
+\begin{document}
+
+%%%%%%%%% TITLE
+\title{Secure Mutual Authentication in IoT: A Python Implementation of a Challenge-Response Protocol}
+
+\author{
+Marco Bernardi \\
+Student ID: 2107781 \\
+{\tt\small marco.bernardi.11@studenti.unipd.it}
+}
+
+\maketitle
+%\thispagestyle{empty}
+
+%%%%%%%%% ABSTRACT
+\begin{abstract}With the rapid expansion of the Internet of Things (IoT), ensuring secure and efficient authentication between devices and servers has become a critical challenge.
+    This paper presents a Python-based implementation of a mutual authentication protocol designed to establish secure communication.
+    The system follows a challenge-response mechanism to verify identities and generate a session key for encrypted message exchange.
+    A connection manager is introduced to coordinate the authentication process, enforce secure communication, and manage session closure.
+    This work provides a practical approach to implementing secure IoT authentication, offering insights into real-world deployment.~\cite{8455985}
+\end{abstract}
+
+%%%%%%%%% BODY TEXT
+\section{Introduction}
+The rapid growth of the Internet of Things (IoT) has led to an unprecedented number of interconnected devices, making security a critical concern.
+In this context, ensuring that both IoT devices and their corresponding servers are authenticated reliably is essential to prevent unauthorized access and protect sensitive data.
+Traditional authentication schemes, often relying on single password mechanisms, are increasingly vulnerable to various attacks, including side-channel and dictionary attacks.
+These vulnerabilities necessitate the development of more robust and dynamic authentication protocols capable of adapting to evolving threats.
+The task at hand involves designing and implementing a secure mutual authentication protocol that can efficiently operate within the resource constraints of typical IoT devices.
+The core challenge lies in establishing a reliable means for both the device and the server to verify each other's identity while continuously updating shared secrets to thwart potential attackers.
+The solution proposed in the original paper introduces a multi-key, vault-based authentication mechanism. This approach leverages a secure vault—a collection of secret keys shared between the IoT device and the server—that is dynamically updated after each successful communication session.
+The protocol employs a challenge-response mechanism in which the server initiates the authentication by sending a challenge to the device, which in turn responds with an encrypted message containing its own challenge. This mutual exchange not only verifies the identities of both parties but also facilitates the derivation of a shared session key used for subsequent encrypted communication.
+In this report, we provide a Python implementation of the aforementioned authentication protocol. Our implementation encapsulates the key aspects of the original solution, including secure vault management, bidirectional challenge-response exchanges, and dynamic session key generation.
+By translating the theoretical framework into a practical prototype, we aim to demonstrate the feasibility and effectiveness of this mutual authentication scheme in securing IoT communications.
+\section{Three-Way Authentication Mechanism}
+
+This section provides a detailed explanation of the three-way authentication mechanism implemented for secure communication between an IoT device and the server. The protocol ensures mutual authentication using cryptographic challenges and responses while maintaining an updated vault for secure future communications.
+
+\subsection{Secure Vaults}
+
+A secure vault is a protected storage mechanism used to maintain cryptographic keys and authentication data safely. In the context of the proposed authentication protocol, the vault is responsible for storing long-term secrets and dynamically updating authentication keys upon a successful session establishment.
+
+To ensure the integrity and confidentiality of stored data, the vault employs cryptographic techniques such as encryption, hashing, and secure access controls.
+
+\subsection{Authentication Process}
+The authentication protocol consists of four message exchanges between the IoT device and the server. Below is the step-by-step breakdown:
+
+\begin{enumerate}
+    \item The IoT device initiates authentication by sending a message $M_1$ containing its device ID and a session identifier:
+          \begin{equation}
+              M_1 = \text{Device ID} \parallel \text{Session ID}
+          \end{equation}
+          The server verifies if the device is known and retrieves the cryptographic keys from the secure vault.
+
+    \item The server responds by generating a random number $r_1$ and a challenge $C_1$ (a set of p distinct random numbers, and each number represents an index of a key in the vault) derived from the stored keys:
+          \begin{equation}
+              M_2 = \{ C_1, r_1 \}
+          \end{equation}
+
+    \item Upon receiving $M_2$, the IoT device computes a session key $k_1$ computed by xoring the keys indexed by the elements of $C_1$ and a random number $t_1$ used for session key generation.. It then encrypts a response,
+          appends a new challenge $C_2$ (a set of q distinct random numbers, and each number represents an index of a key in the vault) for the server, and sends:
+          \begin{equation}
+              M_3 = \text{Enc}(k_1, r_1 \parallel t_1 \parallel \{ C_2, r_2 \})
+          \end{equation}
+
+    \item The server decrypts $M_3$, verifies $r_1$ and $t_1$, then computes a response using $k_2$ and $C_2$.
+          $k_2$ is computed by xoring the keys indexed by the elements of $C_2$, $t_1$ is derived by the received message,
+          while $t_2$ is a random number generated by the server for session key generation.
+          It sends:
+          \begin{equation}
+              M_4 = \text{Enc}(k_2 \oplus t_1, r_1 \parallel t_2)
+          \end{equation}
+
+    \item The client decrypts $M_4$, verifies $r_2$ and $t_2$, and computes the session key $t$ = $t_1$ $\oplus$ $t_2$, finalizing the authentication process.
+\end{enumerate}
+
+\subsection{Vault Update Process}
+The vault update process is crucial for maintaining security across multiple sessions. After every session, the value of the secure vault is changed based on the data exchanged between the server and the IoT device.
+
+The new secure vault is generated using a key-based hashing algorithm known as HMAC. 
+The HMAC is computed on the contents of the current secure vault with the key being the data exchanged during the session. The hash function used produces an output of $k$ bits. The update process is as follows:
+
+\begin{enumerate}
+    \item \textbf{HMAC Computation:}  
+    Compute the HMAC of the current secure vault using the data exchanged between the server and the IoT device as the key. Denote the resulting $k$-bit value as $h$:
+    \[
+    h = \text{HMAC}(\text{current secure vault},\ \text{data exchanged})
+    \]
+    
+    \item \textbf{Partitioning the Secure Vault:}  
+    Divide the current secure vault into $j$ equal partitions of $k$ bits each, referred to as \emph{vault partitions}. If the secure vault's size is not an exact multiple of $k$ bits, pad the end with zeros to create $j$ equal partitions.
+    
+    \item \textbf{Generating the New Secure Vault:}  
+    For each vault partition (indexed by $i$, where $i = 1, 2, \dots, j$), generate the new partition by performing an XOR operation between the vault partition and $(h \oplus i)$:
+    \[
+    \text{new partition}_i = \text{vault partition}_i \oplus (h \oplus i)
+    \]
+    Combine all the new partitions to form the updated secure vault.
+    
+\end{enumerate}
+
+By following these steps after every session, the secure vault is continuously updated, thereby ensuring robust security in subsequent connections.
+
+\subsection{Cryptographic Operations}
+Several cryptographic operations ensure security:
+\begin{itemize}
+    \item \textbf{Encryption:} A symmetric encryption algorithm (e.g., AES) secures messages $M_3$ and $M_4$.
+    \item \textbf{XOR Operation:} Used in message $M_4$ to obfuscate timestamps, preventing replay attacks.
+    \item \textbf{Hashing:} A secure hash function (e.g., SHA-256) generates new session keys during vault updates.
+\end{itemize}
+
+This mechanism ensures robust mutual authentication, secure key management, and resistance against replay and man-in-the-middle attacks.
+
+\begin{algorithm}
+    \caption{IoT Mutual Authentication Protocol}
+    \begin{algorithmic}[1]
+
+        \State \textbf{IoT Device} sends $M_1 = \text{Device ID} \parallel \text{Session ID}$ to the Server.
+
+        \State \textbf{Server} verifies device validity.
+        \State \textbf{Server} generates a random number $r_1$ and a challenge $C_1$ for the device.
+        \State \textbf{Server} sends $M_2 = \{C_1, r_1\}$ to the IoT Device.
+
+        \State \textbf{IoT Device} generates key $k_1$ from challenge $C_1$.
+        \State \textbf{IoT Device} computes response to challenge and generates new challenge $C_2$.
+        \State \textbf{IoT Device} sends $M_3 = Enc(k_1, r_1 \parallel t_1 \parallel \{C_2,r_2\})$ to the Server.
+
+        \State \textbf{Server} verifies IoT Device’s response.
+        \State \textbf{Server} generates key $k_2$ and computes response to challenge $C_2$.
+        \State \textbf{Server} sends $M_4 = Enc(k_2 \oplus t_1, r_2 \parallel t_2)$ to the IoT Device.
+    \end{algorithmic}
+\end{algorithm}
+
+\section{System Setup}
+\subsection{Requirements}
+The system was developed using Python 3.10.11, leveraging several cryptographic and utility libraries to ensure secure and efficient message handling.
+The specific libraries used are as follows:
+
+\begin{itemize}
+    \item \texttt{hmac \& hashlib}: These libraries were employed to compute the HMAC (Hash-based Message Authentication Code) of the transmitted messages.
+          HMAC uses a cryptographic hash function (such as SHA-256, provided by \texttt{hashlib}) in combination with a secret key to provide integrity and authenticity for the messages,
+          ensuring that the content has not been tampered with during transmission.
+    \item \texttt{crypto}: This library was utilized for the generation of asymmetric cryptographic keys.
+          Asymmetric encryption relies on a pair of keys (public and private), enabling secure data exchange, digital signatures, and authentication without sharing the private key.
+    \item \texttt{os}: The \texttt{os} module was used to generate cryptographically secure random numbers, particularly via the \texttt{os.urandom()} function.
+          This function leverages system-level random number generators that are designed to be resistant to predictable patterns and are suitable for cryptographic applications such as key generation or initialization vectors.
+\end{itemize}
+
+\subsection{Class Definitions}
+The system comprises three main classes: \texttt{IoTDevice}, \texttt{IoTServer}, and \texttt{IoTConnectionManager}.
+\texttt{IoTDevice} and \texttt{IoTServer} represent the IoT device and server entities, respectively, they contains all the necessary methods to generate and verify challenges, 
+and the variables to store the various keys and challenges exchanged during the authentication process.
+\texttt{IoTConnectionManager} acts as a coordinator for the authentication process, managing the communication between the IoT device and the server, from the initial message exchange to the final session key generation.
+It also handles the message exchange between the two entities, ensuring that the protocol is followed correctly and securely.
+
+\section{Security Analysis}
+As this work presents a purely software-based implementation of the protocol, with both hardware entities being simulated, the security analysis is constrained to the software level. 
+
+The original paper discusses several security aspects, including resistance to Man-in-the-Middle (MITM) attacks, next-password prediction, side-channel attacks, and Denial-of-Service (DoS) attacks. However, side-channel attacks are not considered in this analysis, as the software implementation does not provide any insight into the physical characteristics of the devices. The remaining attack vectors could potentially compromise the implementation if not properly mitigated.
+
+\begin{itemize}
+    \item \textbf{MITM Attacks:}  
+    The protocol is designed to withstand MITM attacks, preventing adversaries from intercepting and extracting the session key for unauthorized communication. In this implementation, an MITM attack could be attempted after the connection is established by capturing and replaying previously transmitted messages. An attacker who gains access to the communication channel could intercept messages and replay them to the other entity without necessarily understanding their content. If replay protection mechanisms are not enforced, such an attack could lead to unintended system behavior. Therefore, message authentication and freshness validation are critical countermeasures.
+
+    \item \textbf{Next-Password Prediction:}  
+    The security of key generation relies on the use of a cryptographically secure pseudorandom number generator (CSPRNG). In this implementation, randomness is derived from \texttt{os.urandom()}, which is widely regarded as secure. Given the unpredictability of the generated keys, the probability of successfully predicting the next key is negligible unless a fundamental vulnerability is discovered in the underlying randomness source.
+
+    \item \textbf{DoS Attacks:}  
+    The system is designed to be resistant to DoS attacks by ensuring that the server does not allocate resources for unrecognized clients. If an unknown client ID is presented, the server remains unresponsive, preventing resource exhaustion. While DoS attacks targeting the hardware communication layer—such as flooding the channel—are outside the scope of this work, they remain a potential concern in real-world deployments involving physical devices.
+\end{itemize}
+
+Overall, while the implementation maintains resistance against major attack vectors at the software level, additional considerations would be necessary to secure a physical deployment, particularly against side-channel and network-layer DoS attacks.
+
+\section{Conclusion}
+This work presents a Python implementation of a secure mutual authentication protocol for IoT devices, utilizing a challenge-response mechanism to establish secure communication. The implementation demonstrates resistance to several common attack vectors at the software level. However, the overall security of the protocol is highly dependent on its hardware implementation, as multiple vulnerabilities could arise if critical aspects are not properly managed.
+
+For instance, if the secure vault is not adequately protected and stored in a secure memory, an attacker with physical access to the device could retrieve its contents, compromising the security of the system. The same principle applies to cryptographic keys—if they are stored in non-secure memory, an attacker could extract them at runtime, enabling unauthorized decryption and encryption of messages.
+
+Therefore, while the software implementation follows secure design principles, real-world deployments must incorporate robust hardware security measures, such as secure enclaves or trusted execution environments, to mitigate potential threats effectively.
+\subsection{Final Remarks}
+
+{\small
+    \bibliographystyle{ieee_fullname}
+    \bibliography{paper}
+}
+
+\end{document}
